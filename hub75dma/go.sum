@@ -1,0 +1,4 @@
+github.com/jmacd/launchmidi v0.0.0-20221203062954-9a79ac9cf609 h1:B3NHuko5tFU1oQ3/e+3PDwzkdH3+uIM4hfjaX+L1Fdg=
+github.com/jmacd/launchmidi v0.0.0-20221203062954-9a79ac9cf609/go.mod h1:Nridt1mtJVkWR+heeyNsxnxL3wWWExE+iwruw2wgsZA=
+gitlab.com/gomidi/midi/v2 v2.0.25 h1:dkzVBqbaFHjyWwP71MrQNX7IeRUIDonddmHbPpO/Ucg=
+gitlab.com/gomidi/midi/v2 v2.0.25/go.mod h1:quTyMKSQ4Klevxu6gY4gy2USbeZra0fV5SalndmPfsY=
