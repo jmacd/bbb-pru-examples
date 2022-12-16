@@ -129,6 +129,106 @@ func (r *RPMsgDevice) readControl() (*controlStruct, *Frameset, error) {
 	return ctrl, framebuf, nil
 }
 
+// setBernoulli sets the frameset to a solid color using a Bernoulli
+// trial for each color bit of each pixel.
+func (frames *Frameset) setBernoulli(r, g, b float64) {
+	for dblrowNo := 0; dblrowNo < 16; dblrowNo++ {
+		for pix := 0; pix < 64; pix++ {
+			for bankNo := 0; bankNo < 2; bankNo++ {
+				for frameNo := 0; frameNo < 256; frameNo++ {
+					pixel := &frames[bankNo][frameNo][dblrowNo][pix]
+					rnd := rand.Float64()
+					pixel.j1r1(rnd < r)
+					pixel.j1g1(rnd < g)
+					pixel.j1b1(rnd < b)
+					pixel.j1r2(rnd < r)
+					pixel.j1g2(rnd < g)
+					pixel.j1b2(rnd < b)
+					pixel.j3r1(rnd < r)
+					pixel.j3g1(rnd < g)
+					pixel.j3b1(rnd < b)
+					pixel.j3r2(rnd < r)
+					pixel.j3g2(rnd < g)
+					pixel.j3b2(rnd < b)
+				}
+			}
+		}
+	}
+}
+
+// setLinear sets the frameset to a solid uniform color using linear
+// spacing between (temporal) pixels.
+func (frames *Frameset) setLinear(r, g, b float64) {
+	var accum [12]float64
+	acc := func(pos int, inc float64) bool {
+		accum[pos] += inc
+		if accum[pos] >= 1 {
+			accum[pos] -= 1
+			return true
+		}
+		return false
+	}
+	for pix := 0; pix < 64; pix++ {
+		for dblrowNo := 0; dblrowNo < 16; dblrowNo++ {
+			for bankNo := 0; bankNo < 2; bankNo++ {
+				for frameNo := 0; frameNo < 256; frameNo++ {
+					pixel := &(*frames)[bankNo][frameNo][dblrowNo][pix]
+
+					pixel.j1r1(acc(0, r))
+					pixel.j1g1(acc(1, g))
+					pixel.j1b1(acc(2, b))
+					pixel.j1r2(acc(3, r))
+					pixel.j1g2(acc(4, g))
+					pixel.j1b2(acc(5, b))
+					pixel.j3r1(acc(6, r))
+					pixel.j3g1(acc(7, g))
+					pixel.j3b1(acc(8, b))
+					pixel.j3r2(acc(9, r))
+					pixel.j3g2(acc(10, g))
+					pixel.j3b2(acc(11, b))
+				}
+			}
+		}
+	}
+}
+
+// setPoisson uses a Poisson point process to fill in a color, and
+// although the random process is different the result is visually the
+// same as setBernoulli.
+func (frames *Frameset) setPoisson(r, g, b float64) {
+	for pix := 0; pix < 64; pix++ {
+		for dblrowNo := 0; dblrowNo < 16; dblrowNo++ {
+			var accum [12]float64
+
+			acc := func(pos int, rate float64) bool {
+				if accum[pos] < 1 {
+					accum[pos] += rand.ExpFloat64() / rate
+				}
+				accum[pos]--
+				return accum[pos] < 1
+			}
+			for bankNo := 0; bankNo < 2; bankNo++ {
+				for frameNo := 0; frameNo < 256; frameNo++ {
+					pixel := &(*frames)[bankNo][frameNo][dblrowNo][pix]
+
+					pixel.j1r1(acc(0, r))
+					pixel.j1g1(acc(1, g))
+					pixel.j1b1(acc(2, b))
+					pixel.j1r2(acc(3, r))
+					pixel.j1g2(acc(4, g))
+					pixel.j1b2(acc(5, b))
+					pixel.j3r1(acc(6, r))
+					pixel.j3g1(acc(7, g))
+					pixel.j3b1(acc(8, b))
+					pixel.j3r2(acc(9, r))
+					pixel.j3g2(acc(10, g))
+					pixel.j3b2(acc(11, b))
+				}
+			}
+		}
+	}
+}
+
 func Main() error {
 	l, err := xl.Open()
 	if err != nil {
@@ -168,105 +268,15 @@ func Main() error {
 		}
 	}()
 
-	setB := func(r, g, b float64) {
-		for dblrowNo := 0; dblrowNo < 16; dblrowNo++ {
-			for pix := 0; pix < 64; pix++ {
-				for bankNo := 0; bankNo < 2; bankNo++ {
-					for frameNo := 0; frameNo < 256; frameNo++ {
-						pixel := &(*frames)[bankNo][frameNo][dblrowNo][pix]
-						rnd := rand.Float64()
-						pixel.j1r1(rnd < r)
-						pixel.j1g1(rnd < g)
-						pixel.j1b1(rnd < b)
-						pixel.j1r2(rnd < r)
-						pixel.j1g2(rnd < g)
-						pixel.j1b2(rnd < b)
-						pixel.j3r1(rnd < r)
-						pixel.j3g1(rnd < g)
-						pixel.j3b1(rnd < b)
-						pixel.j3r2(rnd < r)
-						pixel.j3g2(rnd < g)
-						pixel.j3b2(rnd < b)
-					}
-				}
-			}
-		}
-	}
-	setL := func(r, g, b float64) {
-		var accum [12]float64
-		acc := func(pos int, inc float64) bool {
-			accum[pos] += inc
-			if accum[pos] >= 1 {
-				accum[pos] -= 1
-				return true
-			}
-			return false
-		}
-		for pix := 0; pix < 64; pix++ {
-			for dblrowNo := 0; dblrowNo < 16; dblrowNo++ {
-				for bankNo := 0; bankNo < 2; bankNo++ {
-					for frameNo := 0; frameNo < 256; frameNo++ {
-						pixel := &(*frames)[bankNo][frameNo][dblrowNo][pix]
-
-						pixel.j1r1(acc(0, r))
-						pixel.j1g1(acc(1, g))
-						pixel.j1b1(acc(2, b))
-						pixel.j1r2(acc(3, r))
-						pixel.j1g2(acc(4, g))
-						pixel.j1b2(acc(5, b))
-						pixel.j3r1(acc(6, r))
-						pixel.j3g1(acc(7, g))
-						pixel.j3b1(acc(8, b))
-						pixel.j3r2(acc(9, r))
-						pixel.j3g2(acc(10, g))
-						pixel.j3b2(acc(11, b))
-					}
-				}
-			}
-		}
-	}
-	setP := func(r, g, b float64) {
-		for pix := 0; pix < 64; pix++ {
-			for dblrowNo := 0; dblrowNo < 16; dblrowNo++ {
-				var accum [12]float64
-
-				acc := func(pos int, rate float64) bool {
-					if accum[pos] < 1 {
-						accum[pos] += rand.ExpFloat64() / rate
-					}
-					accum[pos]--
-					return accum[pos] < 1
-				}
-				for bankNo := 0; bankNo < 2; bankNo++ {
-					for frameNo := 0; frameNo < 256; frameNo++ {
-						pixel := &(*frames)[bankNo][frameNo][dblrowNo][pix]
-
-						pixel.j1r1(acc(0, r))
-						pixel.j1g1(acc(1, g))
-						pixel.j1b1(acc(2, b))
-						pixel.j1r2(acc(3, r))
-						pixel.j1g2(acc(4, g))
-						pixel.j1b2(acc(5, b))
-						pixel.j3r1(acc(6, r))
-						pixel.j3g1(acc(7, g))
-						pixel.j3b1(acc(8, b))
-						pixel.j3r2(acc(9, r))
-						pixel.j3g2(acc(10, g))
-						pixel.j3b2(acc(11, b))
-					}
-				}
-			}
-		}
-	}
-
 	r := 0.8
 	g := 0.05
 	b := 0.15
 
 	focus := 0.0
 
-	setB(r, g, b)
+	frames.setBernoulli(r, g, b)
 
+	// Sliders 0-2 control R, G, B
 	l.AddCallback(xl.AllChannels, xl.ControlSlider[0], func(ch int, control xl.Control, value xl.Value) {
 		r = value.Float()
 	})
@@ -276,6 +286,7 @@ func Main() error {
 	l.AddCallback(xl.AllChannels, xl.ControlSlider[2], func(ch int, control xl.Control, value xl.Value) {
 		b = value.Float()
 	})
+	// Track buttons 0-2 set the dithering mode.
 	l.AddCallback(xl.AllChannels, xl.ControlButtonTrackFocus[0], func(ch int, control xl.Control, value xl.Value) {
 		focus = 0
 	})
@@ -298,11 +309,11 @@ func Main() error {
 			time.Sleep(25 * time.Millisecond)
 			switch focus {
 			case 0:
-				setL(r, g, b)
+				frames.setLinear(r, g, b)
 			case 1:
-				setB(r, g, b)
+				frames.setBernoulli(r, g, b)
 			case 2:
-				setP(r, g, b)
+				frames.setPoisson(r, g, b)
 			}
 		}
 	}()
